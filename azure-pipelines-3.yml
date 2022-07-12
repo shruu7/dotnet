@@ -1,0 +1,49 @@
+trigger:
+- dev
+
+stages:
+  - stage: Build
+    jobs:
+      - job: BuildWebApp
+
+        variables:
+         solution: '**/*.sln'
+         buildPlatform: 'Any CPU'
+         buildConfiguration: 'Release'
+
+        pool:
+            vmImage: 'windows-latest'
+
+        steps:
+        - task: NuGetToolInstaller@1
+
+        - task: NuGetCommand@2
+          inputs:
+            restoreSolution: '$(solution)'
+
+        - task: VSBuild@1
+          displayName: 'Build solution'
+          inputs:
+            solution: '$(solution)'
+            msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:DesktopBuildPackageLocation="$(build.artifactStagingDirectory)\WebApp.zip" /p:DeployIisAppPath="Default Web Site"'
+            platform: '$(buildPlatform)'
+            configuration: '$(buildConfiguration)'
+
+        - task: VSTest@2
+          inputs:
+            platform: '$(buildPlatform)'
+            configuration: '$(buildConfiguration)'
+            
+  - stage: DeployDev
+    jobs:
+    - deployment: VMDeploy
+      displayName: Deploy to VM
+      environment: 
+        name: Dev
+        resourceType: VirtualMachine
+        tags: windows,prod # only deploy to virtual machines with both windows and prod tags
+      strategy:
+        runOnce:
+          deploy:   
+            steps:
+            - script: echo "Hello world"
